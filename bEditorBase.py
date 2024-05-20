@@ -29,6 +29,8 @@ class BathymetryEditorBase(QMainWindow):
         self.canvas = FigureCanvas(self.fig)
         self.layout.addWidget(self.canvas)
 
+        self.canvas.mpl_connect("scroll_event", self.on_mouse_wheel)
+
         self.bathymetry_data = None
         self.patches = []
 
@@ -60,6 +62,8 @@ class BathymetryEditorBase(QMainWindow):
         try:
             self.bathymetry_data = np.fromfile(bathy_path, ">f4").reshape(ny, nx)
             self.update_canvas()
+            self.original_xlim = self.ax.get_xlim()
+            self.original_ylim = self.ax.get_ylim()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load data: {e}")
 
@@ -95,6 +99,72 @@ class BathymetryEditorBase(QMainWindow):
             # x, y = int(event.xdata), int(event.ydata)
             # Implement pixel editing functionality
             pass
+
+    def on_mouse_wheel(self, event):
+        base_scale = 1.1
+        if event.button == "up":
+            scale_factor = 1 / base_scale
+        elif event.button == "down":
+            scale_factor = base_scale
+        else:
+            scale_factor = 1
+
+        curr_xlim = self.ax.get_xlim()
+        curr_ylim = self.ax.get_ylim()
+
+        new_width = (curr_xlim[1] - curr_xlim[0]) * scale_factor
+        new_height = (curr_ylim[1] - curr_ylim[0]) * scale_factor
+
+        if new_width > (self.original_xlim[1] - self.original_xlim[0]) or new_height > (
+            self.original_ylim[1] - self.original_ylim[0]
+        ):
+            self.ax.set_xlim(self.original_xlim)
+            self.ax.set_ylim(self.original_ylim)
+        else:
+            relx = (curr_xlim[1] - event.xdata) / (curr_xlim[1] - curr_xlim[0])
+            rely = (curr_ylim[1] - event.ydata) / (curr_ylim[1] - curr_ylim[0])
+
+            self.ax.set_xlim(
+                [event.xdata - new_width * (1 - relx), event.xdata + new_width * relx]
+            )
+            self.ax.set_ylim(
+                [event.ydata - new_height * (1 - rely), event.ydata + new_height * rely]
+            )
+
+        self.canvas.draw()
+
+    # def on_mouse_wheel(self, event):
+    #     base_scale = 1.1
+    #     if event.button == "up":
+    #         scale_factor = 1 / base_scale
+    #     elif event.button == "down":
+    #         scale_factor = base_scale
+    #     else:
+    #         scale_factor = 1
+
+    #     curr_xlim = self.ax.get_xlim()
+    #     curr_ylim = self.ax.get_ylim()
+
+    #     new_width = (curr_xlim[1] - curr_xlim[0]) * scale_factor
+    #     new_height = (curr_ylim[1] - curr_ylim[0]) * scale_factor
+
+    #     if new_width > (self.original_xlim[1] - self.original_xlim[0]) or new_height > (
+    #         self.original_ylim[1] - self.original_ylim[0]
+    #     ):
+    #         self.ax.set_xlim(self.original_xlim)
+    #         self.ax.set_ylim(self.original_ylim)
+    #     else:
+    #         relx = (curr_xlim[1] - event.xdata) / (curr_xlim[1] - curr_xlim[0])
+    #         rely = (curr_ylim[1] - event.ydata) / (curr_ylim[1] - curr_ylim[0])
+
+    #         self.ax.set_xlim(
+    #             [event.xdata - new_width * (1 - relx), event.xdata + new_width * relx]
+    #         )
+    #         self.ax.set_ylim(
+    #             [event.ydata - new_height * (1 - rely), event.ydata + new_height * rely]
+    #         )
+
+    #     self.canvas.draw()
 
     def toggle_edit_mode(self):
         self.edit_mode = not self.edit_mode
