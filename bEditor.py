@@ -4,7 +4,7 @@ import numpy as np
 from matplotlib.patches import Circle
 from scipy.ndimage import label
 from utils import geometric_median
-from bEditorABC import BathymetryEditorBase
+from bEditorBase import BathymetryEditorBase
 from PyQt5.QtWidgets import QApplication
 
 app_cli = typer.Typer()
