@@ -29,7 +29,14 @@ class BathymetryEditorBase(QMainWindow):
         self.canvas = FigureCanvas(self.fig)
         self.layout.addWidget(self.canvas)
 
+        # Zooming
         self.canvas.mpl_connect("scroll_event", self.on_mouse_wheel)
+
+        # Panning
+        self.canvas.mpl_connect("button_press_event", self.on_button_press_pan)
+        self.canvas.mpl_connect("button_release_event", self.on_button_release_pan)
+        self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move_pan)
+        self.pan_start = None
 
         self.bathymetry_data = None
         self.patches = []
@@ -62,8 +69,8 @@ class BathymetryEditorBase(QMainWindow):
         try:
             self.bathymetry_data = np.fromfile(bathy_path, ">f4").reshape(ny, nx)
             self.update_canvas()
-            self.original_xlim = self.ax.get_xlim()
-            self.original_ylim = self.ax.get_ylim()
+            self.base_xlim = self.ax.get_xlim()
+            self.base_ylim = self.ax.get_ylim()
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to load data: {e}")
 
@@ -115,11 +122,11 @@ class BathymetryEditorBase(QMainWindow):
         new_width = (curr_xlim[1] - curr_xlim[0]) * scale_factor
         new_height = (curr_ylim[1] - curr_ylim[0]) * scale_factor
 
-        if new_width > (self.original_xlim[1] - self.original_xlim[0]) or new_height > (
-            self.original_ylim[1] - self.original_ylim[0]
+        if new_width > (self.base_xlim[1] - self.base_xlim[0]) or new_height > (
+            self.base_ylim[1] - self.base_ylim[0]
         ):
-            self.ax.set_xlim(self.original_xlim)
-            self.ax.set_ylim(self.original_ylim)
+            self.ax.set_xlim(self.base_xlim)
+            self.ax.set_ylim(self.base_ylim)
         else:
             relx = (curr_xlim[1] - event.xdata) / (curr_xlim[1] - curr_xlim[0])
             rely = (curr_ylim[1] - event.ydata) / (curr_ylim[1] - curr_ylim[0])
@@ -133,38 +140,27 @@ class BathymetryEditorBase(QMainWindow):
 
         self.canvas.draw()
 
-    # def on_mouse_wheel(self, event):
-    #     base_scale = 1.1
-    #     if event.button == "up":
-    #         scale_factor = 1 / base_scale
-    #     elif event.button == "down":
-    #         scale_factor = base_scale
-    #     else:
-    #         scale_factor = 1
+    def on_button_press_pan(self, event):
+        if event.button == 1 and event.inaxes:
+            self.pan_start = (event.xdata, event.ydata)
+            self.pan_xlim = self.ax.get_xlim()
+            self.pan_ylim = self.ax.get_ylim()
 
-    #     curr_xlim = self.ax.get_xlim()
-    #     curr_ylim = self.ax.get_ylim()
+    def on_mouse_move_pan(self, event):
+        if self.pan_start is None or not event.inaxes:
+            return
+        dx = self.pan_start[0] - event.xdata
+        dy = self.pan_start[1] - event.ydata
 
-    #     new_width = (curr_xlim[1] - curr_xlim[0]) * scale_factor
-    #     new_height = (curr_ylim[1] - curr_ylim[0]) * scale_factor
+        self.pan_xlim = (self.pan_xlim[0] + dx, self.pan_xlim[1] + dx)
+        self.pan_ylim = (self.pan_ylim[0] + dy, self.pan_ylim[1] + dy)
 
-    #     if new_width > (self.original_xlim[1] - self.original_xlim[0]) or new_height > (
-    #         self.original_ylim[1] - self.original_ylim[0]
-    #     ):
-    #         self.ax.set_xlim(self.original_xlim)
-    #         self.ax.set_ylim(self.original_ylim)
-    #     else:
-    #         relx = (curr_xlim[1] - event.xdata) / (curr_xlim[1] - curr_xlim[0])
-    #         rely = (curr_ylim[1] - event.ydata) / (curr_ylim[1] - curr_ylim[0])
+        self.ax.set_xlim(self.pan_xlim)
+        self.ax.set_ylim(self.pan_ylim)
+        self.canvas.draw()
 
-    #         self.ax.set_xlim(
-    #             [event.xdata - new_width * (1 - relx), event.xdata + new_width * relx]
-    #         )
-    #         self.ax.set_ylim(
-    #             [event.ydata - new_height * (1 - rely), event.ydata + new_height * rely]
-    #         )
-
-    #     self.canvas.draw()
+    def on_button_release_pan(self, event):
+        self.pan_start = None
 
     def toggle_edit_mode(self):
         self.edit_mode = not self.edit_mode
