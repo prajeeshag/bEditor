@@ -1,61 +1,72 @@
-
-from abc import ABC, abstractmethod
-from tkinter import Button, Entry, Frame, Label, StringVar, Toplevel, filedialog, messagebox
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-import matplotlib.pyplot as plt
+import sys
 import numpy as np
+import matplotlib.pyplot as plt
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QVBoxLayout, QWidget, 
+    QFileDialog, QMessageBox, QInputDialog, QMenu, QAction, QMenuBar
+)
+from PyQt5.QtGui import QFont
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
-class BathymetryEditorBase(ABC):
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Bathymetry Data Editor")
-        self.root.geometry("1000x800")  # Set the window size
+class BathymetryEditorBase(QMainWindow):
+    def __init__(self):
+        super().__init__()
 
-        self.frame = Frame(root, pady=10)
-        self.frame.pack()
+        self.setWindowTitle("Bathymetry Data Editor")
+        self.setGeometry(100, 100, 1000, 800)
 
-        button_font = ("Helvetica", 12)
+        self.central_widget = QWidget()
+        self.setCentralWidget(self.central_widget)
+        self.layout = QVBoxLayout(self.central_widget)
 
-        self.load_button = Button(self.frame, text="Load Data", command=self.load_data, font=button_font)
-        self.load_button.pack(side="left", padx=5)
+        button_font = QFont("Helvetica", 12)
 
-        self.save_button = Button(self.frame, text="Save Data", command=self.save_data, font=button_font)
-        self.save_button.pack(side="left", padx=5)
-
-        self.find_islands_button = Button(self.frame, text="Find Islands", command=self.find_islands, font=button_font)
-        self.find_islands_button.pack(side="left", padx=5)
-
-        self.find_lakes_button = Button(self.frame, text="Find Lakes", command=self.find_lakes, font=button_font)
-        self.find_lakes_button.pack(side="left", padx=5)
+        self.create_menus()
 
         self.fig, self.ax = plt.subplots()
-        self.canvas = FigureCanvasTkAgg(self.fig, master=root)
-        self.canvas.get_tk_widget().pack(fill="both", expand=True)
+        self.canvas = FigureCanvas(self.fig)
+        self.layout.addWidget(self.canvas)
 
         self.bathymetry_data = None
         self.patches = []
+
+    def create_menus(self):
+        menubar = self.menuBar()
+
+        self.create_menu(menubar, "File", [("Load Data", self.load_data), ("Save Data", self.save_data)])
+        self.create_menu(menubar, "Land", [("Find", self.find_islands), ("Delete", self.delete_islands)])
+        self.create_menu(menubar, "Water", [("Find", self.find_lakes), ("Delete", self.delete_lakes)])
+
+    def create_menu(self, menubar, menu_name, actions):
+        menu = menubar.addMenu(menu_name)
+        for action_name, action_method in actions:
+            action = QAction(action_name, self)
+            action.triggered.connect(action_method)
+            menu.addAction(action)
 
     def load_data_from_args(self, nx, ny, bathy_path):
         try:
             self.bathymetry_data = np.fromfile(bathy_path, ">f4").reshape(ny, nx)
             self.update_canvas()
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to load data: {e}")
+            QMessageBox.critical(self, "Error", f"Failed to load data: {e}")
 
     def load_data(self):
-        NX, NY = self.custom_input_dialog("Enter NX and NY", ["NX (number of columns):", "NY (number of rows):"])
-        if NX and NY:
-            file_path = filedialog.askopenfilename(filetypes=[("Binary Files", "*.bin")])
-            if file_path:
-                self.load_data_from_args(int(NX), int(NY), file_path)
+        nx, ok = QInputDialog.getInt(self, "Enter NX", "NX (number of columns):")
+        if ok:
+            ny, ok = QInputDialog.getInt(self, "Enter NY", "NY (number of rows):")
+            if ok:
+                file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Binary Files (*.bin)")
+                if file_path:
+                    self.load_data_from_args(int(nx), int(ny), file_path)
 
     def save_data(self):
         if self.bathymetry_data is not None:
-            file_path = filedialog.asksaveasfilename(defaultextension=".npy", filetypes=[("Numpy Files", "*.npy")])
+            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Numpy Files (*.npy)")
             if file_path:
                 np.save(file_path, self.bathymetry_data)
         else:
-            messagebox.showerror("Error", "No data to save")
+            QMessageBox.critical(self, "Error", "No data to save")
 
     def update_canvas(self):
         if self.bathymetry_data is not None:
@@ -72,35 +83,14 @@ class BathymetryEditorBase(ABC):
     def toggle_edit_mode(self):
         self.edit_mode = not self.edit_mode
 
-    def custom_input_dialog(self, title, prompts):
-        dialog = Toplevel(self.root)
-        dialog.title(title)
-        dialog.geometry("600x300")
-
-        entries = []
-        for i, prompt in enumerate(prompts):
-            label = Label(dialog, text=prompt, font=("Helvetica", 12))
-            label.grid(row=i, column=0, pady=5, padx=5)
-            var = StringVar()
-            entry = Entry(dialog, textvariable=var, font=("Helvetica", 12))
-            entry.grid(row=i, column=1, pady=5, padx=5)
-            entries.append(var)
-
-        def on_ok():
-            dialog.destroy()
-
-        ok_button = Button(dialog, text="OK", command=on_ok, font=("Helvetica", 12))
-        ok_button.grid(row=len(prompts), column=0, columnspan=2, pady=10)
-
-        dialog.grab_set()
-        self.root.wait_window(dialog)
-
-        return [e.get() for e in entries]
-
-    @abstractmethod
     def find_islands(self):
         pass
 
-    @abstractmethod
+    def delete_islands(self):
+        pass
+
     def find_lakes(self):
+        pass
+
+    def delete_lakes(self):
         pass

@@ -1,10 +1,11 @@
-from tkinter import Tk
+import sys
 import typer
 import numpy as np
 from matplotlib.patches import Circle
 from scipy.ndimage import label
 from utils import *
 from bEditorABC import BathymetryEditorBase
+from PyQt5.QtWidgets import QApplication
 
 app_cli = typer.Typer()
 
@@ -13,8 +14,8 @@ app_cli = typer.Typer()
 
 
 class BathymetryEditor(BathymetryEditorBase):
-    def __init__(self, root):
-        super().__init__(root)
+    def __init__(self):
+        super().__init__()
         self._lmask = None
 
     @property
@@ -34,7 +35,7 @@ class BathymetryEditor(BathymetryEditorBase):
             coords = np.argwhere(feature_mask)
             #cx, cy = np.mean(coords, axis=0)
             cx, cy = geometric_median(coords)
-            circle = Circle((cy, cx), 5, color=color, fill=False)
+            circle = Circle((cy, cx), 10, color=color, fill=False)
             self.ax.add_patch(circle)
             self.patches.append(circle)
         self.canvas.draw()
@@ -52,15 +53,14 @@ class BathymetryEditor(BathymetryEditorBase):
 def main(nx: int = typer.Option(None, "--nx", help="Number of columns"),
          ny: int = typer.Option(None, "--ny", help="Number of rows"),
          bathy: str = typer.Option(None, "--bathy", help="Path to bathymetry binary file")):
-    root = Tk()
-    app = BathymetryEditor(root)
-    
+
+    app = QApplication(sys.argv)
+    window = BathymetryEditor()
+    window.show()
+
     if nx and ny and bathy:
-        app.load_data_from_args(nx, ny, bathy)
-
-    root.mainloop()
-
-
+        window.load_data_from_args(nx, ny, bathy)
+    sys.exit(app.exec_())    
 
 
 if __name__ == "__main__":
