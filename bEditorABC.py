@@ -1,12 +1,16 @@
-import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QVBoxLayout, QWidget, 
-    QFileDialog, QMessageBox, QInputDialog, QMenu, QAction, QMenuBar
+    QMainWindow,
+    QVBoxLayout,
+    QWidget,
+    QFileDialog,
+    QMessageBox,
+    QInputDialog,
+    QAction,
 )
-from PyQt5.QtGui import QFont
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+
 
 class BathymetryEditorBase(QMainWindow):
     def __init__(self):
@@ -18,8 +22,6 @@ class BathymetryEditorBase(QMainWindow):
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
-
-        button_font = QFont("Helvetica", 12)
 
         self.create_menus()
 
@@ -33,9 +35,19 @@ class BathymetryEditorBase(QMainWindow):
     def create_menus(self):
         menubar = self.menuBar()
 
-        self.create_menu(menubar, "File", [("Load Data", self.load_data), ("Save Data", self.save_data)])
-        self.create_menu(menubar, "Land", [("Find", self.find_islands), ("Delete", self.delete_islands)])
-        self.create_menu(menubar, "Water", [("Find", self.find_lakes), ("Delete", self.delete_lakes)])
+        self.create_menu(
+            menubar,
+            "File",
+            [("Load Data", self.load_data), ("Save Data", self.save_data)],
+        )
+        self.create_menu(
+            menubar,
+            "Land",
+            [("Find", self.find_islands), ("Delete", self.delete_islands)],
+        )
+        self.create_menu(
+            menubar, "Water", [("Find", self.find_lakes), ("Delete", self.delete_lakes)]
+        )
 
     def create_menu(self, menubar, menu_name, actions):
         menu = menubar.addMenu(menu_name)
@@ -56,13 +68,17 @@ class BathymetryEditorBase(QMainWindow):
         if ok:
             ny, ok = QInputDialog.getInt(self, "Enter NY", "NY (number of rows):")
             if ok:
-                file_path, _ = QFileDialog.getOpenFileName(self, "Open File", "", "Binary Files (*.bin)")
+                file_path, _ = QFileDialog.getOpenFileName(
+                    self, "Open File", "", "Binary Files (*.bin)"
+                )
                 if file_path:
                     self.load_data_from_args(int(nx), int(ny), file_path)
 
     def save_data(self):
         if self.bathymetry_data is not None:
-            file_path, _ = QFileDialog.getSaveFileName(self, "Save File", "", "Numpy Files (*.npy)")
+            file_path, _ = QFileDialog.getSaveFileName(
+                self, "Save File", "", "Numpy Files (*.npy)"
+            )
             if file_path:
                 np.save(file_path, self.bathymetry_data)
         else:
@@ -71,12 +87,12 @@ class BathymetryEditorBase(QMainWindow):
     def update_canvas(self):
         if self.bathymetry_data is not None:
             self.ax.clear()
-            self.ax.imshow(self.bathymetry_data, cmap='terrain', origin='lower')
+            self.ax.imshow(self.bathymetry_data, cmap="terrain", origin="lower")
             self.canvas.draw()
 
     def on_click(self, event):
         if self.edit_mode and self.bathymetry_data is not None:
-            x, y = int(event.xdata), int(event.ydata)
+            # x, y = int(event.xdata), int(event.ydata)
             # Implement pixel editing functionality
             pass
 
