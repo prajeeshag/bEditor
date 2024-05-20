@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QInputDialog,
     QAction,
 )
+from PyQt5.QtCore import Qt
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 
 
@@ -38,6 +39,11 @@ class BathymetryEditorBase(QMainWindow):
         self.canvas.mpl_connect("motion_notify_event", self.on_mouse_move_pan)
         self.pan_start = None
 
+        # Hover for values
+        self.canvas.mpl_connect("motion_notify_event", self.on_mouse_hover)
+        self.hover_text = None
+        self.ctrl_pressed = False
+
         self.bathymetry_data = None
         self.patches = []
 
@@ -52,10 +58,20 @@ class BathymetryEditorBase(QMainWindow):
         self.create_menu(
             menubar,
             "Land",
-            [("Find", self.find_islands), ("Delete", self.delete_islands)],
+            [
+                ("Find", self.find_islands),
+                ("Delete", self.delete_islands),
+                ("show mask", self.plot_land_mask),
+            ],
         )
         self.create_menu(
-            menubar, "Water", [("Find", self.find_lakes), ("Delete", self.delete_lakes)]
+            menubar,
+            "Water",
+            [
+                ("Find", self.find_lakes),
+                ("Delete", self.delete_lakes),
+                ("show mask", self.plot_water_mask),
+            ],
         )
 
     def create_menu(self, menubar, menu_name, actions):
@@ -68,7 +84,7 @@ class BathymetryEditorBase(QMainWindow):
     def load_data_from_args(self, nx, ny, bathy_path):
         try:
             self.bathymetry_data = np.fromfile(bathy_path, ">f4").reshape(ny, nx)
-            self.update_canvas()
+            self.draw_canvas()
             self.base_xlim = self.ax.get_xlim()
             self.base_ylim = self.ax.get_ylim()
         except Exception as e:
@@ -95,11 +111,32 @@ class BathymetryEditorBase(QMainWindow):
         else:
             QMessageBox.critical(self, "Error", "No data to save")
 
-    def update_canvas(self):
+    def draw_canvas(self):
         if self.bathymetry_data is not None:
             self.ax.clear()
-            self.ax.imshow(self.bathymetry_data, cmap="terrain", origin="lower")
+            self.cax = self.ax.imshow(
+                self.bathymetry_data,
+                cmap="terrain",
+                origin="lower",
+                interpolation=None,
+            )
             self.canvas.draw()
+
+    def update_canvas(self, data=None, cmap="terrain"):
+        curr_xlim = self.ax.get_xlim()
+        curr_ylim = self.ax.get_ylim()
+        self.ax.clear()
+        if data is None:
+            data = self.bathymetry_data
+        self.cax = self.ax.imshow(
+            data,
+            cmap=cmap,
+            origin="lower",
+            interpolation=None,
+        )
+        self.ax.set_xlim(curr_xlim)
+        self.ax.set_ylim(curr_ylim)
+        self.canvas.draw()
 
     def on_click(self, event):
         if self.edit_mode and self.bathymetry_data is not None:
@@ -162,6 +199,39 @@ class BathymetryEditorBase(QMainWindow):
     def on_button_release_pan(self, event):
         self.pan_start = None
 
+    def on_mouse_hover(self, event):
+        if event.inaxes and self.bathymetry_data is not None:
+            ix, iy = int(event.xdata), int(event.ydata)
+            if (
+                0 <= ix < self.bathymetry_data.shape[1]
+                and 0 <= iy < self.bathymetry_data.shape[0]
+            ):
+                bathymetry_value = self.bathymetry_data[iy, ix]
+                self.show_hover_text(f"{bathymetry_value:.2f}")
+        else:
+            self.hide_hover_text()
+
+    def show_hover_text(self, text):
+        if self.hover_text is None:
+            self.hover_text = self.canvas.figure.text(
+                0.95,
+                0.01,
+                "",
+                ha="right",
+                va="bottom",
+                transform=self.canvas.figure.transFigure,
+                bbox=dict(facecolor="white", alpha=0.8),
+                fontsize=8,
+            )
+        self.hover_text.set_text(text)
+        self.hover_text.set_visible(True)
+        self.canvas.draw_idle()
+
+    def hide_hover_text(self):
+        if self.hover_text is not None:
+            self.hover_text.set_visible(False)
+            self.canvas.draw_idle()
+
     def toggle_edit_mode(self):
         self.edit_mode = not self.edit_mode
 
@@ -175,4 +245,10 @@ class BathymetryEditorBase(QMainWindow):
         pass
 
     def delete_lakes(self):
+        pass
+
+    def plot_land_mask(self):
+        pass
+
+    def plot_water_mask(self):
         pass

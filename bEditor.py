@@ -13,6 +13,7 @@ app_cli = typer.Typer()
 class BathymetryEditor(BathymetryEditorBase):
     def __init__(self):
         super().__init__()
+        self._show_lmask = True
 
     @property
     def lmask(self):
@@ -25,7 +26,10 @@ class BathymetryEditor(BathymetryEditorBase):
             patch.remove()
         self.patches.clear()
 
-        labeled_array, num_features = label(mask)
+        labeled_array, num_features = label(
+            mask, structure=np.array([[0, 1, 0], [1, 1, 1], [0, 1, 0]])
+        )
+        print(num_features)
         for feature_num in range(1, num_features + 1):
             feature_mask = labeled_array == feature_num
             coords = np.argwhere(feature_mask)
@@ -44,6 +48,14 @@ class BathymetryEditor(BathymetryEditorBase):
         if self.lmask is not None:
             inverted_lmask = ~self.lmask
             self.find_features(inverted_lmask, "blue")
+
+    def plot_land_mask(self):
+        if self._show_lmask:
+            self.update_canvas(self.lmask, cmap="gray")
+            self._show_lmask = False
+        else:
+            self.update_canvas()
+            self._show_lmask = True
 
 
 @app_cli.command()
